@@ -200,7 +200,7 @@
 
                 <!-- ELA Heatmap -->
                 <div class="flex flex-col">
-                    <h4 class="text-sm font-mono text-cyber-neon mb-2 uppercase tracking-wide"><i class="fa-solid fa-map mr-2"></i>ELA Heatmap Map</h4>
+                    <h4 class="text-sm font-mono text-cyber-neon mb-2 uppercase tracking-wide"><i class="fa-solid fa-map mr-2"></i>ELA Heatmap</h4>
                     <div class="bg-gray-900 rounded-lg border border-gray-800 p-2 h-full min-h-[200px] flex items-center justify-center relative overflow-hidden" id="elaContainer">
                         
                         <!-- Placeholder text while loading -->
@@ -239,7 +239,6 @@
         let currentFile = null;
 
         // --- 1. File Upload & Drag-Drop Logic ---
-
         // Click to upload
         dropZone.addEventListener('click', (e) => {
             if (e.target !== removeFileBtn) fileInput.click();
@@ -365,6 +364,97 @@
                 document.getElementById('reportId').textContent = 'REQ-' + Math.random().toString(36).substr(2, 9).toUpperCase();
             }, 50);
 
+            // =======================================================================
+            // 🔗 BACKEND INTEGRATION POINT
+            // =======================================================================
+            /*
+            try {
+                const formData = new FormData();
+                formData.append('image', currentFile); // 'image' is the key your backend will look for
+
+                const response = await fetch('http://localhost:5000/analyze', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                
+                // If your backend returns the ELA image as a base64 string:
+                // elaImage.src = 'data:image/jpeg;base64,' + data.ela_base64_image;
+                
+                displayResults(data);
+
+            } catch (error) {
+                console.error('Error:', error);
+                statusText.textContent = "Error: Failed to reach backend.";
+                analyzeBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-2"></i> Error';
+            }
+            */
+
+            // --- MOCK API CALL (For Demonstration Purposes) ---
+            // Simulating a 2.5 second processing time
+            setTimeout(() => {
+                // Randomly generate a mock result for the demo
+                const isTampered = Math.random() > 0.5; 
+                
+                const mockData = {
+                    is_tampered: isTampered,
+                    confidence: (Math.random() * (99.9 - 85.0) + 85.0).toFixed(1),
+                    processing_time: (Math.random() * 2 + 0.5).toFixed(2),
+                    compression_rate: Math.floor(Math.random() * (95 - 70) + 70)
+                };
+
+                displayResults(mockData);
+            }, 2500);
+            // --- END MOCK API CALL ---
+        });
+
+        // --- 3. Display Results ---
+
+        function displayResults(data) {
+            // Restore button
+            analyzeBtn.disabled = false;
+            analyzeBtn.innerHTML = '<i class="fa-solid fa-crosshairs mr-2"></i> Re-Analyze';
+            statusText.textContent = "Analysis complete.";
+            previewContainer.classList.remove('scanning');
+
+            // Populate Metrics
+            document.getElementById('confidenceScore').textContent = data.confidence + '%';
+            document.getElementById('processingTime').textContent = data.processing_time + 's';
+            document.getElementById('compressionRate').textContent = data.compression_rate;
+
+            // Configure Verdict Badge
+            const badge = document.getElementById('verdictBadge');
+            const icon = document.getElementById('verdictIcon');
+            const text = document.getElementById('verdictText');
+
+            // Reset classes
+            badge.className = "mt-4 md:mt-0 px-6 py-2 rounded-md font-mono font-bold text-lg border-2 flex items-center";
+
+            if (data.is_tampered) {
+                // Tampered UI styling (Red)
+                badge.classList.add('border-cyber-alert', 'text-cyber-alert', 'bg-cyber-alert', 'bg-opacity-10', 'shadow-neon-alert');
+                icon.className = "fa-solid fa-triangle-exclamation mr-2";
+                text.textContent = "TAMPERED / MANIPULATED";
+            } else {
+                // Authentic UI styling (Green)
+                badge.classList.add('border-cyber-safe', 'text-cyber-safe', 'bg-cyber-safe', 'bg-opacity-10', 'shadow-neon-safe');
+                // Updated icon below to a free FontAwesome icon
+                icon.className = "fa-solid fa-circle-check mr-2";
+                text.textContent = "AUTHENTIC / UNMODIFIED";
+            }
+
+            // Display ELA Heatmap Placeholder
+            elaPlaceholder.classList.add('hidden');
+            elaImage.classList.remove('hidden');
+            
+            // For the frontend-only demo, we apply a CSS filter to the duplicated image 
+            // to make it look vaguely like an ELA map (high contrast, edges visible).
+            // When connecting the backend, remove this class and set elaImage.src to the actual output URL/base64!
+            elaImage.classList.add('fake-ela-filter'); 
+        }
     </script>
 </body>
 </html>
