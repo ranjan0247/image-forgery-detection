@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ELA Tampering Detection Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    },
+                    colors: {
+                        cyber: {
+                            dark: '#0a0f18',
+                            panel: '#111827',
+                            neon: '#00f0ff',
+                            alert: '#ff0055',
+                            safe: '#00ff66'
+                        }
+                    },
+                    boxShadow: {
+                        'neon': '0 0 10px rgba(0, 240, 255, 0.5), 0 0 20px rgba(0, 240, 255, 0.3)',
+                        'neon-alert': '0 0 10px rgba(255, 0, 85, 0.5)',
+                        'neon-safe': '0 0 10px rgba(0, 255, 102, 0.5)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0a0f18;
+            background-image: 
+                linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+            color: #e2e8f0;
+        }
+
+        /* Glitch effect for the title */
+        .glitch-text {
+            position: relative;
+            text-shadow: 0 0 5px rgba(0, 240, 255, 0.5);
+        }
+
+        /* Scanning line animation for the image preview */
+        .scanner-container {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .scanner-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: #00f0ff;
+            box-shadow: 0 0 15px #00f0ff, 0 0 30px #00f0ff;
+            opacity: 0;
+            z-index: 10;
+        }
+
+        .scanning .scanner-line {
+            animation: scan 2s linear infinite;
+            opacity: 0.8;
+        }
+
+        @keyframes scan {
+            0% { top: -10%; }
+            100% { top: 110%; }
+        }
+
+        /* Drag and drop hover state */
+        .drag-over {
+            border-color: #00f0ff !important;
+            background-color: rgba(0, 240, 255, 0.05) !important;
+        }
+
+        /* Fake ELA map filter for the demo placeholder */
+        .fake-ela-filter {
+            filter: contrast(5) grayscale(1) invert(1) brightness(0.8) sepia(1) hue-rotate(180deg) saturate(5);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0f18; }
+        ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00f0ff; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 font-sans">
+
+    <header class="w-full max-w-5xl mx-auto mb-8 text-center">
+        <h1 class="text-4xl sm:text-5xl font-bold text-white mb-2 tracking-tight glitch-text uppercase font-mono">
+            <i class="fa-solid fa-shield-halved text-cyber-neon mr-3"></i>Tamper<span class="text-cyber-neon">Detect</span>
+        </h1>
+        <p class="text-gray-400 text-sm sm:text-base font-mono">Error Level Analysis (ELA) Forgery Identification System</p>
+    </header>
+
+    <main class="w-full max-w-5xl mx-auto grid grid-cols-1 gap-8">
+        
+        <!-- Top Panel: Upload and Controls -->
+        <div class="bg-cyber-panel border border-gray-800 rounded-xl p-6 shadow-xl relative overflow-hidden">
+            <!-- Decorative corner elements -->
+            <div class="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-cyber-neon rounded-tl-xl"></div>
+            <div class="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-cyber-neon rounded-br-xl"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                
+                <!-- Upload Zone -->
+                <div id="dropZone" class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer transition-all duration-300 hover:border-gray-400 group h-full flex flex-col justify-center items-center bg-gray-800/30 relative">
+                    <input type="file" id="fileInput" class="hidden" accept="image/jpeg, image/png, image/jpg">
+                    
+                    <div id="uploadPrompt">
+                        <i class="fa-solid fa-cloud-arrow-up text-4xl text-gray-500 group-hover:text-cyber-neon transition-colors mb-4"></i>
+                        <h3 class="text-lg font-semibold text-gray-200 mb-1">Upload Target Image</h3>
+                        <p class="text-xs text-gray-500 mb-4">Drag & drop or click to browse</p>
+                        <span class="text-[10px] uppercase tracking-wider text-gray-600 font-mono">Supports JPG, PNG (Max 5MB)</span>
+                    </div>
+
+                    <!-- Selected File Info (Hidden initially) -->
+                    <div id="fileInfo" class="hidden flex-col items-center w-full">
+                        <i class="fa-solid fa-file-image text-3xl text-cyber-neon mb-2"></i>
+                        <p id="fileName" class="text-sm font-mono text-gray-300 truncate w-full max-w-[200px] text-center"></p>
+                        <p id="fileSize" class="text-xs text-gray-500 mt-1"></p>
+                        <button id="removeFileBtn" class="mt-4 text-xs text-red-400 hover:text-red-300 underline font-mono">Clear File</button>
+                    </div>
+                </div>
+
+                <!-- Action & Status Area -->
+                <div class="flex flex-col justify-center space-y-6">
+                    <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+                        <h4 class="text-sm font-mono text-gray-400 mb-2 uppercase tracking-wide border-b border-gray-800 pb-2">System Status</h4>
+                        <div class="flex items-center text-sm font-mono mt-3">
+                            <span class="w-2 h-2 rounded-full bg-cyber-safe mr-2 animate-pulse"></span>
+                            <span class="text-gray-300" id="statusText">Awaiting Image Input...</span>
+                        </div>
+                    </div>
+
+                    <button id="analyzeBtn" disabled class="w-full bg-gray-800 text-gray-400 font-bold font-mono py-4 px-6 rounded-lg border border-gray-700 transition-all duration-300 uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-crosshairs mr-2"></i> Initiate Analysis
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Panel (Hidden initially) -->
+        <div id="resultsPanel" class="hidden bg-cyber-panel border border-gray-800 rounded-xl p-6 shadow-xl relative overflow-hidden transition-all duration-500 opacity-0 translate-y-4">
+            
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-4 border-b border-gray-800">
+                <div>
+                    <h2 class="text-2xl font-bold text-white font-mono uppercase tracking-wide">Analysis Report</h2>
+                    <p class="text-xs text-gray-500 font-mono mt-1">UUID: <span id="reportId"></span></p>
+                </div>
+                
+                <!-- Verdict Badge -->
+                <div id="verdictBadge" class="mt-4 md:mt-0 px-6 py-2 rounded-md font-mono font-bold text-lg border-2 shadow-neon-alert flex items-center">
+                    <i id="verdictIcon" class="fa-solid mr-2"></i>
+                    <span id="verdictText">Processing...</span>
+                </div>
+            </div>
+
+            <!-- Metrics -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-gray-900 p-4 rounded-lg border border-gray-800">
+                    <p class="text-xs text-gray-500 font-mono uppercase">Confidence Score</p>
+                    <p class="text-xl font-bold text-white mt-1" id="confidenceScore">--%</p>
+                </div>
+                <div class="bg-gray-900 p-4 rounded-lg border border-gray-800">
+                    <p class="text-xs text-gray-500 font-mono uppercase">Compression Rate</p>
+                    <p class="text-xl font-bold text-white mt-1" id="compressionRate">--</p>
+                </div>
+                <div class="bg-gray-900 p-4 rounded-lg border border-gray-800">
+                    <p class="text-xs text-gray-500 font-mono uppercase">Processing Time</p>
+                    <p class="text-xl font-bold text-white mt-1" id="processingTime">-- ms</p>
+                </div>
+                <div class="bg-gray-900 p-4 rounded-lg border border-gray-800">
+                    <p class="text-xs text-gray-500 font-mono uppercase">Model</p>
+                    <p class="text-xl font-bold text-white mt-1">SVM + ELA</p>
+                </div>
+            </div>
+
+            <!-- Image Comparison Area -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Original Image -->
+                <div class="flex flex-col">
+                    <h4 class="text-sm font-mono text-cyber-neon mb-2 uppercase tracking-wide"><i class="fa-regular fa-image mr-2"></i>Original Image</h4>
+                    <div class="bg-gray-900 rounded-lg border border-gray-800 p-2 scanner-container" id="previewContainer">
+                        <div class="scanner-line"></div>
+                        <img id="previewImage" src="" alt="Original Preview" class="w-full h-auto max-h-[400px] object-contain rounded opacity-50 transition-opacity duration-300">
+                    </div>
+                </div>
+
+                <!-- ELA Heatmap -->
+                <div class="flex flex-col">
+                    <h4 class="text-sm font-mono text-cyber-neon mb-2 uppercase tracking-wide"><i class="fa-solid fa-map mr-2"></i>ELA Heatmap Map</h4>
+                    <div class="bg-gray-900 rounded-lg border border-gray-800 p-2 h-full min-h-[200px] flex items-center justify-center relative overflow-hidden" id="elaContainer">
+                        
+                        <!-- Placeholder text while loading -->
+                        <div id="elaPlaceholder" class="text-gray-600 font-mono text-sm flex flex-col items-center">
+                            <i class="fa-solid fa-cog fa-spin text-2xl mb-2"></i>
+                            Generating Heatmap...
+                        </div>
+
+                        <!-- Generated ELA Image goes here -->
+                        <img id="elaImage" src="" alt="ELA Heatmap" class="w-full h-auto max-h-[400px] object-contain rounded hidden">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // DOM Elements
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadPrompt = document.getElementById('uploadPrompt');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const removeFileBtn = document.getElementById('removeFileBtn');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const statusText = document.getElementById('statusText');
+        const previewImage = document.getElementById('previewImage');
+        const resultsPanel = document.getElementById('resultsPanel');
+        const previewContainer = document.getElementById('previewContainer');
+        const elaImage = document.getElementById('elaImage');
+        const elaPlaceholder = document.getElementById('elaPlaceholder');
+
+        // State
+        let currentFile = null;
+
+        // --- 1. File Upload & Drag-Drop Logic ---
+
+        // Click to upload
+        dropZone.addEventListener('click', (e) => {
+            if (e.target !== removeFileBtn) fileInput.click();
+        });
+
+        // Drag and drop events
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        });
+
+        fileInput.addEventListener('change', function() {
+            handleFiles(this.files);
+        });
+
+        function handleFiles(files) {
+            if (files.length === 0) return;
+            const file = files[0];
+
+            // Basic validation
+            if (!file.type.match('image.*')) {
+                alert("Please upload an image file (JPG, PNG).");
+                return;
+            }
+
+            currentFile = file;
+            updateUIForFile(file);
+        }
+
+        function updateUIForFile(file) {
+            // Update Text
+            fileName.textContent = file.name;
+            fileSize.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+            
+            // Toggle Visibility
+            uploadPrompt.classList.add('hidden');
+            fileInfo.classList.remove('hidden');
+            fileInfo.classList.add('flex');
+
+            // Enable Button
+            analyzeBtn.disabled = false;
+            analyzeBtn.classList.remove('bg-gray-800', 'text-gray-400', 'border-gray-700');
+            analyzeBtn.classList.add('bg-cyber-neon', 'text-black', 'border-cyber-neon', 'hover:shadow-neon', 'hover:bg-cyan-300');
+            
+            statusText.textContent = "Target acquired. Ready for analysis.";
+            statusText.classList.replace('text-gray-300', 'text-cyber-neon');
+
+            // Load Preview Image (Hidden in results panel until analysis)
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                // We'll use this same src for the fake ELA placeholder demo
+                elaImage.src = e.target.result; 
+            };
+            reader.readAsDataURL(file);
+
+            // Hide results if previously shown
+            resetResultsPanel();
+        }
+
+        removeFileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            currentFile = null;
+            fileInput.value = '';
+            
+            uploadPrompt.classList.remove('hidden');
+            fileInfo.classList.add('hidden');
+            fileInfo.classList.remove('flex');
+            
+            analyzeBtn.disabled = true;
+            analyzeBtn.classList.add('bg-gray-800', 'text-gray-400', 'border-gray-700');
+            analyzeBtn.classList.remove('bg-cyber-neon', 'text-black', 'border-cyber-neon', 'hover:shadow-neon', 'hover:bg-cyan-300');
+            
+            statusText.textContent = "Awaiting Image Input...";
+            statusText.classList.replace('text-cyber-neon', 'text-gray-300');
+            
+            resetResultsPanel();
+        });
+
+        function resetResultsPanel() {
+            resultsPanel.classList.add('hidden', 'opacity-0', 'translate-y-4');
+            previewImage.classList.add('opacity-50');
+            previewContainer.classList.remove('scanning');
+            elaImage.classList.add('hidden');
+            elaPlaceholder.classList.remove('hidden');
+        }
+
+        // --- 2. Analysis & Backend Connection Logic ---
+
+        analyzeBtn.addEventListener('click', async () => {
+            if (!currentFile) return;
+
+            // UI changes for loading state
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Analyzing...';
+            statusText.textContent = "Extracting Error Level Analysis features...";
+            
+            // Show results panel but in loading state
+            resultsPanel.classList.remove('hidden');
+            // Small delay to allow display block to apply before animating opacity
+            setTimeout(() => {
+                resultsPanel.classList.remove('opacity-0', 'translate-y-4');
+                previewContainer.classList.add('scanning');
+                previewImage.classList.remove('opacity-50');
+                document.getElementById('reportId').textContent = 'REQ-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+            }, 50);
+
+            // =======================================================================
+            // 🔗 BACKEND INTEGRATION POINT
+            // =======================================================================
+            // To connect this frontend to your Python (Flask/FastAPI) backend:
+            // 
+            // 1. Uncomment the fetch code below.
+            // 2. Change 'http://localhost:5000/analyze' to your actual backend URL.
+            // 3. Ensure your Python backend allows CORS (Cross-Origin Resource Sharing).
+            // 4. Your backend should return a JSON response similar to the mockData below.
+            //    (e.g., { is_tampered: true, confidence: 94.5, processing_time: 1.2 })
+            // 5. Delete the "MOCK API CALL" setTimeout block.
+            // =======================================================================
+
+            /*
+            try {
+                const formData = new FormData();
+                formData.append('image', currentFile); // 'image' is the key your backend will look for
+
+                const response = await fetch('http://localhost:5000/analyze', {
+                    method: 'POST',
+                    body: formData,
+                    // Note: Don't set Content-Type header manually when sending FormData, 
+                    // the browser does it automatically with the correct boundary.
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                
+                // If your backend returns the ELA image as a base64 string:
+                // elaImage.src = 'data:image/jpeg;base64,' + data.ela_base64_image;
+                
+                displayResults(data);
+
+            } catch (error) {
+                console.error('Error:', error);
+                statusText.textContent = "Error: Failed to reach backend.";
+                analyzeBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-2"></i> Error';
+            }
+            */
+
+            // --- MOCK API CALL (For Demonstration Purposes) ---
+            // Simulating a 2.5 second processing time
+            setTimeout(() => {
+                // Randomly generate a mock result for the demo
+                const isTampered = Math.random() > 0.5; 
+                
+                const mockData = {
+                    is_tampered: isTampered,
+                    confidence: (Math.random() * (99.9 - 85.0) + 85.0).toFixed(1),
+                    processing_time: (Math.random() * 2 + 0.5).toFixed(2),
+                    compression_rate: Math.floor(Math.random() * (95 - 70) + 70)
+                };
+
+                displayResults(mockData);
+            }, 2500);
+            // --- END MOCK API CALL ---
+        });
+
+        // --- 3. Display Results ---
+
+        function displayResults(data) {
+            // Restore button
+            analyzeBtn.disabled = false;
+            analyzeBtn.innerHTML = '<i class="fa-solid fa-crosshairs mr-2"></i> Re-Analyze';
+            statusText.textContent = "Analysis complete.";
+            previewContainer.classList.remove('scanning');
+
+            // Populate Metrics
+            document.getElementById('confidenceScore').textContent = data.confidence + '%';
+            document.getElementById('processingTime').textContent = data.processing_time + 's';
+            document.getElementById('compressionRate').textContent = data.compression_rate;
+
+            // Configure Verdict Badge
+            const badge = document.getElementById('verdictBadge');
+            const icon = document.getElementById('verdictIcon');
+            const text = document.getElementById('verdictText');
+
+            // Reset classes
+            badge.className = "mt-4 md:mt-0 px-6 py-2 rounded-md font-mono font-bold text-lg border-2 flex items-center";
+
+            if (data.is_tampered) {
+                // Tampered UI styling (Red)
+                badge.classList.add('border-cyber-alert', 'text-cyber-alert', 'bg-cyber-alert', 'bg-opacity-10', 'shadow-neon-alert');
+                icon.className = "fa-solid fa-triangle-exclamation mr-2";
+                text.textContent = "TAMPERED / MANIPULATED";
+            } else {
+                // Authentic UI styling (Green)
+                badge.classList.add('border-cyber-safe', 'text-cyber-safe', 'bg-cyber-safe', 'bg-opacity-10', 'shadow-neon-safe');
+                icon.className = "fa-solid fa-shield-check mr-2";
+                text.textContent = "AUTHENTIC / UNMODIFIED";
+            }
+
+            // Display ELA Heatmap Placeholder
+            elaPlaceholder.classList.add('hidden');
+            elaImage.classList.remove('hidden');
+            elaImage.classList.add('fake-ela-filter'); 
+        }
+    </script>
+</body>
+</html>
