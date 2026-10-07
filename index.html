@@ -235,6 +235,136 @@
         const elaImage = document.getElementById('elaImage');
         const elaPlaceholder = document.getElementById('elaPlaceholder');
 
+        // State
+        let currentFile = null;
+
+        // --- 1. File Upload & Drag-Drop Logic ---
+
+        // Click to upload
+        dropZone.addEventListener('click', (e) => {
+            if (e.target !== removeFileBtn) fileInput.click();
+        });
+
+        // Drag and drop events
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        });
+
+        fileInput.addEventListener('change', function() {
+            handleFiles(this.files);
+        });
+
+        function handleFiles(files) {
+            if (files.length === 0) return;
+            const file = files[0];
+
+            // Basic validation
+            if (!file.type.match('image.*')) {
+                alert("Please upload an image file (JPG, PNG).");
+                return;
+            }
+
+            currentFile = file;
+            updateUIForFile(file);
+        }
+
+        function updateUIForFile(file) {
+            // Update Text
+            fileName.textContent = file.name;
+            fileSize.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+            
+            // Toggle Visibility
+            uploadPrompt.classList.add('hidden');
+            fileInfo.classList.remove('hidden');
+            fileInfo.classList.add('flex');
+
+            // Enable Button
+            analyzeBtn.disabled = false;
+            analyzeBtn.classList.remove('bg-gray-800', 'text-gray-400', 'border-gray-700');
+            analyzeBtn.classList.add('bg-cyber-neon', 'text-black', 'border-cyber-neon', 'hover:shadow-neon', 'hover:bg-cyan-300');
+            
+            statusText.textContent = "Target acquired. Ready for analysis.";
+            statusText.classList.replace('text-gray-300', 'text-cyber-neon');
+
+            // Load Preview Image (Hidden in results panel until analysis)
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                // We'll use this same src for the fake ELA placeholder demo
+                elaImage.src = e.target.result; 
+            };
+            reader.readAsDataURL(file);
+
+            // Hide results if previously shown
+            resetResultsPanel();
+        }
+
+        removeFileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            currentFile = null;
+            fileInput.value = '';
+            
+            uploadPrompt.classList.remove('hidden');
+            fileInfo.classList.add('hidden');
+            fileInfo.classList.remove('flex');
+            
+            analyzeBtn.disabled = true;
+            analyzeBtn.classList.add('bg-gray-800', 'text-gray-400', 'border-gray-700');
+            analyzeBtn.classList.remove('bg-cyber-neon', 'text-black', 'border-cyber-neon', 'hover:shadow-neon', 'hover:bg-cyan-300');
+            
+            statusText.textContent = "Awaiting Image Input...";
+            statusText.classList.replace('text-cyber-neon', 'text-gray-300');
+            
+            resetResultsPanel();
+        });
+
+        function resetResultsPanel() {
+            resultsPanel.classList.add('hidden', 'opacity-0', 'translate-y-4');
+            previewImage.classList.add('opacity-50');
+            previewContainer.classList.remove('scanning');
+            elaImage.classList.add('hidden');
+            elaPlaceholder.classList.remove('hidden');
+        }
+
+        // --- 2. Analysis & Backend Connection Logic ---
+
+        analyzeBtn.addEventListener('click', async () => {
+            if (!currentFile) return;
+
+            // UI changes for loading state
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Analyzing...';
+            statusText.textContent = "Extracting Error Level Analysis features...";
+            
+            // Show results panel but in loading state
+            resultsPanel.classList.remove('hidden');
+            // Small delay to allow display block to apply before animating opacity
+            setTimeout(() => {
+                resultsPanel.classList.remove('opacity-0', 'translate-y-4');
+                previewContainer.classList.add('scanning');
+                previewImage.classList.remove('opacity-50');
+                document.getElementById('reportId').textContent = 'REQ-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+            }, 50);
+
     </script>
 </body>
 </html>
