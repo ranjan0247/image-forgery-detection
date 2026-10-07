@@ -1,3 +1,10 @@
+## Team Members:
+
+* **Ranjan Ravindra Mamadapur** - R25EF212
+* **Pranav Ethapay** - R25EQ058
+* **Mohammed Bilal Ahmed** - R25EF147
+* **Nayab Nehal Haque** - R25EF160
+
 Image Forgery Detection using ELA and CNN
 A simple image forgery detection system that uses Error Level Analysis (ELA) and a Convolutional Neural Network (CNN) to classify images as Authentic or Forged.
 How It Works
